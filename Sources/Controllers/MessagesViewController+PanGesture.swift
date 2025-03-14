@@ -59,6 +59,7 @@ extension MessagesViewController {
     case .began, .changed:
       messagesCollectionView.showsVerticalScrollIndicator = false
       let translation = gesture.translation(in: view)
+      // TODO: Calculate minX based on the widths of actual labels
       let minX = -(view.frame.size.width * 0.35)
       let maxX: CGFloat = 0
       var offsetValue = translation.x

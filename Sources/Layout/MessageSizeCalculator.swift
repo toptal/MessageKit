@@ -48,7 +48,7 @@ open class MessageSizeCalculator: CellSizeCalculator {
     attributes.avatarLeadingTrailingPadding = avatarLeadingTrailingPadding
 
     attributes.messageContainerPadding = messageContainerPadding(for: message)
-    attributes.messageContainerSize = messageContainerSize(for: message, at: indexPath)
+    attributes.messageContainerSize = messageContainerSizeWithAttachments(for: message, at: indexPath)
     attributes.cellTopLabelSize = cellTopLabelSize(for: message, at: indexPath)
     attributes.cellTopLabelAlignment = cellTopLabelAlignment(for: message)
     attributes.cellBottomLabelSize = cellBottomLabelSize(for: message, at: indexPath)
@@ -60,9 +60,12 @@ open class MessageSizeCalculator: CellSizeCalculator {
     attributes.messageBottomLabelAlignment = messageBottomLabelAlignment(for: message, at: indexPath)
     attributes.messageBottomLabelSize = messageBottomLabelSize(for: message, at: indexPath)
 
-    attributes.accessoryViewSize = accessoryViewSize(for: message)
+    attributes.accessoryViewSize = accessoryViewSize(for: message, at: indexPath)
     attributes.accessoryViewPadding = accessoryViewPadding(for: message)
     attributes.accessoryViewPosition = accessoryViewPosition(for: message)
+
+    attributes.attachmentSize = attachmentViewSize(for: message, at: indexPath)
+    attributes.attachmentPadding = attachmentPadding(for: message, at: indexPath)
   }
 
   open override func sizeForItem(at indexPath: IndexPath) -> CGSize {
@@ -73,7 +76,7 @@ open class MessageSizeCalculator: CellSizeCalculator {
   }
 
   open func cellContentHeight(for message: MessageType, at indexPath: IndexPath) -> CGFloat {
-    let messageContainerHeight = messageContainerSize(for: message, at: indexPath).height
+    let messageContainerHeight = messageContainerSizeWithAttachments(for: message, at: indexPath).height
     let cellBottomLabelHeight = cellBottomLabelSize(for: message, at: indexPath).height
     let messageBottomLabelHeight = messageBottomLabelSize(for: message, at: indexPath).height
     let cellTopLabelHeight = cellTopLabelSize(for: message, at: indexPath).height
@@ -81,7 +84,7 @@ open class MessageSizeCalculator: CellSizeCalculator {
     let messageVerticalPadding = messageContainerPadding(for: message).vertical
     let avatarHeight = avatarSize(for: message, at: indexPath).height
     let avatarVerticalPosition = avatarPosition(for: message).vertical
-    let accessoryViewHeight = accessoryViewSize(for: message).height
+    let accessoryViewHeight = accessoryViewSize(for: message, at: indexPath).height
 
     switch avatarVerticalPosition {
     case .messageCenter:
@@ -238,18 +241,40 @@ open class MessageSizeCalculator: CellSizeCalculator {
     return isFromCurrentSender ? outgoingMessagePadding : incomingMessagePadding
   }
 
-  open func messageContainerSize(for _: MessageType, at _: IndexPath) -> CGSize {
-    // Returns .zero by default
-    .zero
+    open func messageContainerSize(for _: MessageType, at _: IndexPath) -> CGSize {
+      // Returns .zero by default
+      .zero
+    }
+
+  open func messageContainerSizeWithAttachments(for message: MessageType, at indexPath: IndexPath) -> CGSize {
+    let attachmentSize = attachmentViewSize(for: message, at: indexPath)
+    let attachmentPadding = attachmentPadding(for: message, at: indexPath)
+    var baseSize = messageContainerSize(for: message, at: indexPath)
+    guard attachmentSize != .zero else {
+      return baseSize
+    }
+
+    baseSize.width = messageContainerMaxWidth(for: message, at: indexPath)
+    baseSize.height += attachmentSize.height + attachmentPadding.vertical
+
+    return baseSize
   }
 
   open func messageContainerMaxWidth(for message: MessageType, at indexPath: IndexPath) -> CGFloat {
     let avatarWidth: CGFloat = avatarSize(for: message, at: indexPath).width
     let messagePadding = messageContainerPadding(for: message)
-    let accessoryWidth = accessoryViewSize(for: message).width
+    let accessoryWidth = accessoryViewSize(for: message, at: indexPath).width
     let accessoryPadding = accessoryViewPadding(for: message)
     return messagesLayout.itemWidth - avatarWidth - messagePadding.horizontal - accessoryWidth - accessoryPadding
       .horizontal - avatarLeadingTrailingPadding
+  }
+
+  // MARK: Attachments
+
+  open func attachmentPadding(for message: MessageType, at indexPath: IndexPath) -> UIEdgeInsets {
+    let dataSource = messagesLayout.messagesDataSource
+    let isFromCurrentSender = dataSource.isFromCurrentSender(message: message)
+    return isFromCurrentSender ? outgoingAttachmentViewPadding : incomingAttachmentViewPadding
   }
 
   // MARK: Public
@@ -286,6 +311,9 @@ open class MessageSizeCalculator: CellSizeCalculator {
   public var incomingAccessoryViewPosition: AccessoryPosition = .messageCenter
   public var outgoingAccessoryViewPosition: AccessoryPosition = .messageCenter
 
+  public var incomingAttachmentViewPadding = UIEdgeInsets(top: 0, left: 18, bottom: 7, right: 14)
+  public var outgoingAttachmentViewPadding = UIEdgeInsets(top: 0, left: 14, bottom: 7, right: 18)
+
   // MARK: - Helpers
 
   public var messagesLayout: MessagesCollectionViewFlowLayout {
@@ -297,10 +325,29 @@ open class MessageSizeCalculator: CellSizeCalculator {
 
   // MARK: - Accessory View
 
-  public func accessoryViewSize(for message: MessageType) -> CGSize {
+  public func accessoryViewSize(for message: MessageType, at indexPath: IndexPath) -> CGSize {
+      let collectionView = messagesLayout.messagesCollectionView
+      let layoutDelegate = messagesLayout.messagesLayoutDelegate
+
+    if let size = layoutDelegate.accessorySize(for: message, at: indexPath, in: collectionView) {
+      return size
+    }
+
     let dataSource = messagesLayout.messagesDataSource
     let isFromCurrentSender = dataSource.isFromCurrentSender(message: message)
     return isFromCurrentSender ? outgoingAccessoryViewSize : incomingAccessoryViewSize
+  }
+
+  public func attachmentViewSize(for message: MessageType, at indexPath: IndexPath) -> CGSize {
+    let collectionView = messagesLayout.messagesCollectionView
+    let layoutDelegate = messagesLayout.messagesLayoutDelegate
+    let padding = attachmentPadding(for: message, at: indexPath)
+    let maxWidth = messageContainerMaxWidth(for: message, at: indexPath) - padding.horizontal
+    if let height = layoutDelegate.attachmentHeight(for: message, at: indexPath, maxWidth: maxWidth, in: collectionView) {
+        return .init(width: maxWidth, height: height)
+    }
+
+    return .zero
   }
 
   public func accessoryViewPadding(for message: MessageType) -> HorizontalEdgeInsets {

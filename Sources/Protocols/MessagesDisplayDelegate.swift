@@ -107,6 +107,19 @@ public protocol MessagesDisplayDelegate: AnyObject {
     at indexPath: IndexPath,
     in messagesCollectionView: MessagesCollectionView)
 
+  /// Used to configure the `AttachmentView` in a `MessageContentCell` class.
+  ///
+  /// - Parameters:
+  ///   - attachmentView: The `AttachmentView` of the cell.
+  ///   - message: The `MessageType` that will be displayed by this cell.
+  ///   - indexPath: The `IndexPath` of the cell.
+  ///   - messagesCollectionView: The `MessagesCollectionView` in which this cell will be displayed.
+  func configureAttachmentView(
+    _ attachmentView: UIView,
+    for message: MessageType,
+    at indexPath: IndexPath,
+    in messagesCollectionView: MessagesCollectionView)
+
   // MARK: - Text Messages
 
   /// Specifies the color of the text for a `TextMessageCell`.
@@ -255,6 +268,17 @@ public protocol MessagesDisplayDelegate: AnyObject {
     for message: MessageType,
     at indexPath: IndexPath,
     in messagesCollectionView: MessagesCollectionView)
+
+
+  /// Used inform delegate that given cell was displayed.
+  /// - Parameters:
+  ///   - message: The `MessageType` that will be displayed by this cell.
+  ///   - indexPath: The `IndexPath` of the cell.
+  ///   - messagesCollectionView: The `MessagesCollectionView` in which this cell will be displayed.
+  func willDisplayCell(
+    for message: MessageType,
+    at indexPath: IndexPath,
+    in messagesCollectionView: MessagesCollectionView)
 }
 
 extension MessagesDisplayDelegate {
@@ -302,6 +326,8 @@ extension MessagesDisplayDelegate {
   }
 
   public func configureAccessoryView(_: UIView, for _: MessageType, at _: IndexPath, in _: MessagesCollectionView) { }
+
+  public func configureAttachmentView(_: UIView, for _: MessageType, at _: IndexPath, in _: MessagesCollectionView) { }
 
   // MARK: - Text Messages Defaults
 
@@ -405,4 +431,11 @@ extension MessagesDisplayDelegate {
     for _: MessageType,
     at _: IndexPath,
     in _: MessagesCollectionView) { }
+
+  // MARK: - Will Display Cell Defaults
+
+  public func willDisplayCell(
+    for message: MessageType,
+    at indexPath: IndexPath,
+    in messagesCollectionView: MessagesCollectionView) { }
 }

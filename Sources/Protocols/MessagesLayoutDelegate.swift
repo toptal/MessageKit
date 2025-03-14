@@ -155,6 +155,27 @@ public protocol MessagesLayoutDelegate: AnyObject {
   func avatarSize(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView)
     -> CGSize?
 
+  /// Specifies the size for the `MessageContentCell`'s accessory view.
+  /// - Parameters:
+  ///   - message: The `MessageType` that will be displayed for this cell.
+  ///   - indexPath: The `IndexPath` of the cell.
+  ///   - messagesCollectionView: The `MessagesCollectionView` in which this cell will be displayed.
+  /// - Returns: Optional CGSize for the accessory image view. If nil is returned or delegate method is not implemented,
+  /// size from `MessageSizeCalculator`'s `incomingAccessorySize` or `outgoingAccessorySize` will be used depending if the message is outgoing or incoming
+  func accessorySize(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView)
+    -> CGSize?
+
+  /// Specifies the height for the `MessageContentCell`'s attachment view.
+  /// - Parameters:
+  ///   - message: The `MessageType` that will be displayed for this cell.
+  ///   - indexPath: The `IndexPath` of the cell.
+  ///   - maxWidth: Maximal width the attachment view can have.
+  ///   - messagesCollectionView: The `MessagesCollectionView` in which this cell will be displayed.
+  /// - Returns: Optional height for the attachment view. If nil is returned or delegate method is not implemented,
+  /// the attachment view will not be displayed
+  func attachmentHeight(for message: MessageType, at indexPath: IndexPath, maxWidth: CGFloat, in messagesCollectionView: MessagesCollectionView)
+    -> CGFloat?
+
   /// Text cell size calculator for messages with MessageType.text.
   ///
   /// - Parameters:
@@ -323,6 +344,15 @@ extension MessagesLayoutDelegate {
   }
 
   public func avatarSize(for _: MessageType, at _: IndexPath, in _: MessagesCollectionView) -> CGSize? {
+    nil
+  }
+
+  public func accessorySize(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CGSize? {
+    nil
+  }
+
+  public func attachmentHeight(for message: MessageType, at indexPath: IndexPath, maxWidth: CGFloat, in messagesCollectionView: MessagesCollectionView)
+    -> CGFloat? {
     nil
   }
 

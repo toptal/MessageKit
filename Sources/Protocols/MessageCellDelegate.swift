@@ -108,6 +108,17 @@ public protocol MessageCellDelegate: MessageLabelDelegate {
   /// method `messageForItem(at:indexPath:messagesCollectionView)`.
   func didTapAccessoryView(in cell: MessageCollectionViewCell)
 
+  /// Triggered when a tap occurs in the attachmentView.
+  ///
+  /// - Parameters:
+  ///   - cell: The cell where the tap occurred.
+  ///   - point: The touch point in the attachment view coordinate system.
+  ///
+  /// You can get a reference to the `MessageType` for the cell by using `UICollectionView`'s
+  /// `indexPath(for: cell)` method. Then using the returned `IndexPath` with the `MessagesDataSource`
+  /// method `messageForItem(at:indexPath:messagesCollectionView)`.
+  func didTapAttachmentView(in cell: MessageCollectionViewCell, at point: CGPoint)
+
   /// Triggered when a tap occurs on the image.
   ///
   /// - Parameters:
@@ -185,4 +196,6 @@ extension MessageCellDelegate {
   public func didTapMessageBottomLabel(in _: MessageCollectionViewCell) { }
 
   public func didTapAccessoryView(in _: MessageCollectionViewCell) { }
+
+  public func didTapAttachmentView(in cell: MessageCollectionViewCell, at point: CGPoint) { }
 }

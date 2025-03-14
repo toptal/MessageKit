@@ -27,7 +27,8 @@ import UIKit
 
 /// A subclass of `UIViewController` with a `MessagesCollectionView` object
 /// that is used to display conversation interfaces.
-open class MessagesViewController: UIViewController, UICollectionViewDelegateFlowLayout, UICollectionViewDataSource {
+open class MessagesViewController: UIViewController, UICollectionViewDelegateFlowLayout, MessagesCollectionViewFlowLayoutDelegate {
+    
   // MARK: Lifecycle
 
   deinit {
@@ -80,129 +81,167 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
     setupDelegates()
     addObservers()
     addKeyboardObservers()
-    addMenuControllerObservers()
     /// Layout input container view and update messagesCollectionViewInsets
     view.layoutIfNeeded()
+    messagesCollectionView.transform = .init(scaleX: 1, y: -1)
+    messagesCollectionView.contentInsetAdjustmentBehavior = .never
+    messagesCollectionView.automaticallyAdjustsScrollIndicatorInsets = false
+    diffableDataSource = .init(collectionView: messagesCollectionView) { collectionView, indexPath, entry in
+      guard let messagesCollectionView = collectionView as? MessagesCollectionView else {
+        fatalError(MessageKitError.notMessagesCollectionView)
+      }
+     guard let messagesDataSource = messagesCollectionView.messagesDataSource else {
+        fatalError(MessageKitError.nilMessagesDataSource)
+      }
+
+      switch entry.kind {
+      case .message(let message):
+        switch message.kind {
+        case .text, .attributedText, .emoji:
+          if let cell = messagesDataSource.textCell(for: message, at: indexPath, in: messagesCollectionView) {
+            return cell
+          } else {
+            let cell = messagesCollectionView.dequeueReusableCell(TextMessageCell.self, for: indexPath)
+            cell.configure(with: message, at: indexPath, and: messagesCollectionView)
+            return cell
+          }
+        case .photo, .video:
+          if let cell = messagesDataSource.photoCell(for: message, at: indexPath, in: messagesCollectionView) {
+            return cell
+          } else {
+            let cell = messagesCollectionView.dequeueReusableCell(MediaMessageCell.self, for: indexPath)
+            cell.configure(with: message, at: indexPath, and: messagesCollectionView)
+            return cell
+          }
+        case .location:
+          if let cell = messagesDataSource.locationCell(for: message, at: indexPath, in: messagesCollectionView) {
+            return cell
+          } else {
+            let cell = messagesCollectionView.dequeueReusableCell(LocationMessageCell.self, for: indexPath)
+            cell.configure(with: message, at: indexPath, and: messagesCollectionView)
+            return cell
+          }
+        case .audio:
+          if let cell = messagesDataSource.audioCell(for: message, at: indexPath, in: messagesCollectionView) {
+            return cell
+          } else {
+            let cell = messagesCollectionView.dequeueReusableCell(AudioMessageCell.self, for: indexPath)
+            cell.configure(with: message, at: indexPath, and: messagesCollectionView)
+            return cell
+          }
+        case .contact:
+          if let cell = messagesDataSource.contactCell(for: message, at: indexPath, in: messagesCollectionView) {
+            return cell
+          } else {
+            let cell = messagesCollectionView.dequeueReusableCell(ContactMessageCell.self, for: indexPath)
+            cell.configure(with: message, at: indexPath, and: messagesCollectionView)
+            return cell
+          }
+        case .linkPreview:
+          let cell = messagesCollectionView.dequeueReusableCell(LinkPreviewMessageCell.self, for: indexPath)
+          cell.configure(with: message, at: indexPath, and: messagesCollectionView)
+          return cell
+        case .custom:
+          return messagesDataSource.customCell(for: message, at: indexPath, in: messagesCollectionView)
+        }
+      case .typingIndicator:
+          return messagesDataSource.typingIndicator(at: indexPath, in: messagesCollectionView)
+      }
+    }
+
+    diffableDataSource?.supplementaryViewProvider = { collectionView, kind, indexPath in
+      guard let messagesCollectionView = collectionView as? MessagesCollectionView else {
+        fatalError(MessageKitError.notMessagesCollectionView)
+      }
+      guard let displayDelegate = messagesCollectionView.messagesDisplayDelegate else {
+        fatalError(MessageKitError.nilMessagesDisplayDelegate)
+      }
+      switch kind {
+      case UICollectionView.elementKindSectionHeader:
+        return displayDelegate.messageHeaderView(for: indexPath, in: messagesCollectionView)
+      case UICollectionView.elementKindSectionFooter:
+        return displayDelegate.messageFooterView(for: indexPath, in: messagesCollectionView)
+      default:
+        fatalError(MessageKitError.unrecognizedSectionKind)
+      }
+    }
   }
 
   open override func viewSafeAreaInsetsDidChange() {
     super.viewSafeAreaInsetsDidChange()
     updateMessageCollectionViewBottomInset()
+
+    messagesCollectionView.verticalScrollIndicatorInsets.bottom = view.safeAreaInsets.top
+    messagesCollectionView.contentInset.bottom = view.safeAreaInsets.top
   }
 
-  // MARK: - UICollectionViewDataSource
-
-  open func numberOfSections(in collectionView: UICollectionView) -> Int {
-    guard let collectionView = collectionView as? MessagesCollectionView else {
-      fatalError(MessageKitError.notMessagesCollectionView)
-    }
-    let sections = collectionView.messagesDataSource?.numberOfSections(in: collectionView) ?? 0
-    return collectionView.isTypingIndicatorHidden ? sections : sections + 1
-  }
-
-  open func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-    guard let collectionView = collectionView as? MessagesCollectionView else {
-      fatalError(MessageKitError.notMessagesCollectionView)
-    }
-    if isSectionReservedForTypingIndicator(section) {
-      return 1
-    }
-    return collectionView.messagesDataSource?.numberOfItems(inSection: section, in: collectionView) ?? 0
-  }
-
-  /// Notes:
-  /// - If you override this method, remember to call MessagesDataSource's customCell(for:at:in:)
-  /// for MessageKind.custom messages, if necessary.
-  ///
-  /// - If you are using the typing indicator you will need to ensure that the section is not
-  /// reserved for it with `isSectionReservedForTypingIndicator` defined in
-  /// `MessagesCollectionViewFlowLayout`
-  open func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-    guard let messagesCollectionView = collectionView as? MessagesCollectionView else {
-      fatalError(MessageKitError.notMessagesCollectionView)
-    }
-
+  public func updateDataSource(
+      animated: Bool,
+      completion: @escaping (() -> Void) = {}
+  ) {
     guard let messagesDataSource = messagesCollectionView.messagesDataSource else {
       fatalError(MessageKitError.nilMessagesDataSource)
     }
+    guard let diffableDataSource else {
+      fatalError("Update called before data source was initialized")
+    }
+    var snapshot = NSDiffableDataSourceSnapshot<Int, Entry>()
 
-    if isSectionReservedForTypingIndicator(indexPath.section) {
-      return messagesDataSource.typingIndicator(at: indexPath, in: messagesCollectionView)
+    let sections = messagesDataSource.numberOfSections(in: messagesCollectionView)
+
+    let internalCompletion = {
+        completion()
     }
 
-    let message = messagesDataSource.messageForItem(at: indexPath, in: messagesCollectionView)
-
-    switch message.kind {
-    case .text, .attributedText, .emoji:
-      if let cell = messagesDataSource.textCell(for: message, at: indexPath, in: messagesCollectionView) {
-        return cell
-      } else {
-        let cell = messagesCollectionView.dequeueReusableCell(TextMessageCell.self, for: indexPath)
-        cell.configure(with: message, at: indexPath, and: messagesCollectionView)
-        return cell
+    for section in 0..<sections {
+      snapshot.appendSections([section])
+      let items = messagesDataSource.numberOfItems(inSection: section, in: messagesCollectionView)
+      for item in 0..<items {
+        let indexPath = IndexPath(item: item, section: section)
+        let message = messagesDataSource.messageForItem(at: indexPath, in: messagesCollectionView)
+        snapshot.appendItems([.init(kind: .message(message))], toSection: section)
       }
-    case .photo, .video:
-      if let cell = messagesDataSource.photoCell(for: message, at: indexPath, in: messagesCollectionView) {
-        return cell
-      } else {
-        let cell = messagesCollectionView.dequeueReusableCell(MediaMessageCell.self, for: indexPath)
-        cell.configure(with: message, at: indexPath, and: messagesCollectionView)
-        return cell
-      }
-    case .location:
-      if let cell = messagesDataSource.locationCell(for: message, at: indexPath, in: messagesCollectionView) {
-        return cell
-      } else {
-        let cell = messagesCollectionView.dequeueReusableCell(LocationMessageCell.self, for: indexPath)
-        cell.configure(with: message, at: indexPath, and: messagesCollectionView)
-        return cell
-      }
-    case .audio:
-      if let cell = messagesDataSource.audioCell(for: message, at: indexPath, in: messagesCollectionView) {
-        return cell
-      } else {
-        let cell = messagesCollectionView.dequeueReusableCell(AudioMessageCell.self, for: indexPath)
-        cell.configure(with: message, at: indexPath, and: messagesCollectionView)
-        return cell
-      }
-    case .contact:
-      if let cell = messagesDataSource.contactCell(for: message, at: indexPath, in: messagesCollectionView) {
-        return cell
-      } else {
-        let cell = messagesCollectionView.dequeueReusableCell(ContactMessageCell.self, for: indexPath)
-        cell.configure(with: message, at: indexPath, and: messagesCollectionView)
-        return cell
-      }
-    case .linkPreview:
-      let cell = messagesCollectionView.dequeueReusableCell(LinkPreviewMessageCell.self, for: indexPath)
-      cell.configure(with: message, at: indexPath, and: messagesCollectionView)
-      return cell
-    case .custom:
-      return messagesDataSource.customCell(for: message, at: indexPath, in: messagesCollectionView)
-    }
-  }
-
-  open func collectionView(
-    _ collectionView: UICollectionView,
-    viewForSupplementaryElementOfKind kind: String,
-    at indexPath: IndexPath)
-    -> UICollectionReusableView
-  {
-    guard let messagesCollectionView = collectionView as? MessagesCollectionView else {
-      fatalError(MessageKitError.notMessagesCollectionView)
     }
 
-    guard let displayDelegate = messagesCollectionView.messagesDisplayDelegate else {
-      fatalError(MessageKitError.nilMessagesDisplayDelegate)
+    if !isTypingIndicatorHidden {
+      snapshot.appendSections([sections])
+      snapshot.appendItems([.init(kind: .typingIndicator)])
     }
 
-    switch kind {
-    case UICollectionView.elementKindSectionHeader:
-      return displayDelegate.messageHeaderView(for: indexPath, in: messagesCollectionView)
-    case UICollectionView.elementKindSectionFooter:
-      return displayDelegate.messageFooterView(for: indexPath, in: messagesCollectionView)
-    default:
-      fatalError(MessageKitError.unrecognizedSectionKind)
+    var oldSnapshot = diffableDataSource.snapshot()
+    let oldItems = Set(oldSnapshot.itemIdentifiers)
+    let newItems = Set(snapshot.itemIdentifiers)
+
+    let unchangedItems = oldItems.intersection(newItems)
+    let addedItems = newItems.subtracting(oldItems)
+    let removedItems = oldItems.subtracting(newItems)
+
+    // We have new items added or removed so we do a full reload
+    if !addedItems.isEmpty || !removedItems.isEmpty {
+      diffableDataSource.apply(snapshot, animatingDifferences: animated, completion: internalCompletion)
+    } else if !unchangedItems.isEmpty {
+      if #available(iOS 15.0, *) {
+        for oldItem in oldItems {
+          if let item = newItems.first(where: { $0.hashValue == oldItem.hashValue }) {
+            switch (item.kind, oldItem.kind) {
+              case (.message(let message), .message(let oldMessage)):
+                if message.hash != oldMessage.hash {
+                    oldSnapshot.reloadItems([oldItem])
+                }
+              default:
+                oldSnapshot.reloadItems([oldItem])
+            }
+          } else {
+              oldSnapshot.reloadItems([oldItem])
+          }
+        }
+        diffableDataSource.apply(oldSnapshot, animatingDifferences: animated, completion: internalCompletion)
+      } else {
+        diffableDataSource.apply(snapshot, animatingDifferences: animated, completion: internalCompletion)
+      }
+    } else {
+      // There were no changes at all, so we just call completion
+      completion()
     }
   }
 
@@ -236,7 +275,16 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
     return layoutDelegate.headerViewSize(for: section, in: messagesCollectionView)
   }
 
-  open func collectionView(_: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt _: IndexPath) {
+  open func collectionView(_: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+    switch diffableDataSource?.itemIdentifier(for: indexPath)?.kind {
+    case .none, .typingIndicator:
+      break
+    case .message(let message):
+      messagesCollectionView.messagesDisplayDelegate?.willDisplayCell(
+        for: message,
+        at: indexPath,
+        in: messagesCollectionView)
+    }
     guard let cell = cell as? TypingIndicatorCell else { return }
     cell.typingBubble.startAnimating()
   }
@@ -259,54 +307,58 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
     return layoutDelegate.footerViewSize(for: section, in: messagesCollectionView)
   }
 
-  open func collectionView(_: UICollectionView, shouldShowMenuForItemAt indexPath: IndexPath) -> Bool {
-    guard let messagesDataSource = messagesCollectionView.messagesDataSource else { return false }
-
-    if isSectionReservedForTypingIndicator(indexPath.section) {
-      return false
-    }
-
-    let message = messagesDataSource.messageForItem(at: indexPath, in: messagesCollectionView)
-
-    switch message.kind {
-    case .text, .attributedText, .emoji, .photo:
-      selectedIndexPathForMenu = indexPath
-      return true
-    default:
-      return false
-    }
-  }
-
-  open func collectionView(
-    _: UICollectionView,
-    canPerformAction action: Selector,
-    forItemAt indexPath: IndexPath,
-    withSender _: Any?)
-    -> Bool
-  {
-    if isSectionReservedForTypingIndicator(indexPath.section) {
-      return false
-    }
-    return (action == NSSelectorFromString("copy:"))
-  }
-
-  open func collectionView(_: UICollectionView, performAction _: Selector, forItemAt indexPath: IndexPath, withSender _: Any?) {
+  open func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) ->  UIContextMenuConfiguration? {
     guard let messagesDataSource = messagesCollectionView.messagesDataSource else {
       fatalError(MessageKitError.nilMessagesDataSource)
     }
+    guard let indexPath = indexPaths.first else { return nil }
     let pasteBoard = UIPasteboard.general
     let message = messagesDataSource.messageForItem(at: indexPath, in: messagesCollectionView)
 
+    enum Content {
+      case text(String)
+      case image(UIImage)
+    }
+
+    let content: Content?
+
     switch message.kind {
     case .text(let text), .emoji(let text):
-      pasteBoard.string = text
+      content = .text(text)
     case .attributedText(let attributedText):
-      pasteBoard.string = attributedText.string
+      content = .text(attributedText.string)
     case .photo(let mediaItem):
-      pasteBoard.image = mediaItem.image ?? mediaItem.placeholderImage
+      content = .image(mediaItem.image ?? mediaItem.placeholderImage)
     default:
-      break
+      content = nil
     }
+    if let content {
+      return UIContextMenuConfiguration(previewProvider: nil) { action in
+        let copy = UIAction(title: "Copy") { _ in
+            switch content {
+            case .image(let image):
+                pasteBoard.image = image
+            case .text(let text):
+                pasteBoard.string = text
+            }
+        }
+        return UIMenu(options: UIMenu.Options.displayInline, children: [copy])
+      }
+    } else {
+      return nil
+    }
+  }
+
+  open func collectionView(_ collectionView: UICollectionView, contextMenuConfiguration configuration: UIContextMenuConfiguration, highlightPreviewForItemAt indexPath: IndexPath) -> UITargetedPreview? {
+    targetedPreview(forItemAt: indexPath)
+  }
+
+  open func collectionView(_ collectionView: UICollectionView, contextMenuConfiguration configuration: UIContextMenuConfiguration, dismissalPreviewForItemAt indexPath: IndexPath) -> UITargetedPreview? {
+    targetedPreview(forItemAt: indexPath)
+  }
+
+  func messagesCollectionViewFlowLayout(_ layout: MessagesCollectionViewFlowLayout, isSectionReservedForTypingIndicator section: Int) -> Bool {
+      isSectionReservedForTypingIndicator(section)
   }
 
   // MARK: Public
@@ -318,10 +370,30 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
   // MARK: - Internal properties
 
   internal let state: State = .init()
+  internal var isTypingIndicatorHidden: Bool = true
 
   // MARK: Private
 
   // MARK: - Private methods
+
+  private var diffableDataSource: UICollectionViewDiffableDataSource<Int, Entry>?
+
+  func isSectionReservedForTypingIndicator(_ section: Int) -> Bool {
+    guard let diffableDataSource else {
+      fatalError("Data source is not initialized")
+    }
+    return diffableDataSource
+      .snapshot()
+      .itemIdentifiers(inSection: section)
+      .contains(where: {
+        switch $0.kind {
+        case .message:
+          return false
+        case .typingIndicator:
+          return true
+        }
+      })
+  }
 
   private func setupDefaults() {
     extendedLayoutIncludesOpaqueBars = true
@@ -350,7 +422,6 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
 
   private func setupDelegates() {
     messagesCollectionView.delegate = self
-    messagesCollectionView.dataSource = self
   }
 
   private func setupInputBar(for kind: MessageInputBarKind) {
@@ -399,5 +470,45 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
 
   private func clearMemoryCache() {
     MessageStyle.bubbleImageCache.removeAllObjects()
+  }
+
+  func targetedPreview(forItemAt indexPath: IndexPath) -> UITargetedPreview? {
+    guard let cell = messagesCollectionView.cellForItem(at: indexPath) as? MessageContentCell else { return nil }
+    let parameters = UIPreviewParameters()
+    parameters.backgroundColor = .clear
+    // TODO: We need to set the chat bubble path here
+
+    return .init(view: cell.messageContainerView, parameters: parameters)
+  }
+}
+
+internal struct Entry: Hashable, @unchecked Sendable {
+  enum Kind {
+    case message(MessageType)
+    case typingIndicator
+  }
+
+  let kind: Kind
+
+  func hash(into hasher: inout Hasher) {
+    // We explicitly don't hash the message content hash here since at this level we want to know about position
+    // changes, not content changes
+    switch kind {
+    case .message(let message):
+      hasher.combine(message.messageId)
+    case .typingIndicator:
+      hasher.combine("typingIndicator")
+    }
+  }
+
+  static func == (lhs: Entry, rhs: Entry) -> Bool {
+    switch (lhs.kind, rhs.kind) {
+    case (.message(let lhs), .message(let rhs)):
+      return lhs.messageId == rhs.messageId
+    case (.typingIndicator, .typingIndicator):
+      return true
+    default:
+      return false
+    }
   }
 }

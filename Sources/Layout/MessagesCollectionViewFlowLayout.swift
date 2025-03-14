@@ -24,6 +24,10 @@ import AVFoundation
 import Foundation
 import UIKit
 
+protocol MessagesCollectionViewFlowLayoutDelegate: UICollectionViewDelegateFlowLayout {
+    func messagesCollectionViewFlowLayout(_ layout: MessagesCollectionViewFlowLayout, isSectionReservedForTypingIndicator section: Int) -> Bool
+}
+
 /// The layout object used by `MessagesCollectionView` to determine the size of all
 /// framework provided `MessageCollectionViewCell` subclasses.
 open class MessagesCollectionViewFlowLayout: UICollectionViewFlowLayout {
@@ -78,7 +82,10 @@ open class MessagesCollectionViewFlowLayout: UICollectionViewFlowLayout {
   /// - Parameter section
   /// - Returns: A Boolean indicating if the TypingIndicator should be presented at the given section
   open func isSectionReservedForTypingIndicator(_ section: Int) -> Bool {
-    !isTypingIndicatorViewHidden && section == messagesCollectionView.numberOfSections - 1
+    guard let delegate = messagesCollectionView.delegate as? MessagesCollectionViewFlowLayoutDelegate else {
+        fatalError("Please set messagesCollectionViewFlowLayoutDelegate")
+    }
+    return delegate.messagesCollectionViewFlowLayout(self, isSectionReservedForTypingIndicator: section)
   }
 
   // MARK: - Attributes
@@ -91,6 +98,7 @@ open class MessagesCollectionViewFlowLayout: UICollectionViewFlowLayout {
     for attributes in attributesArray where attributes.representedElementCategory == .cell {
       let cellSizeCalculator = cellSizeCalculatorForItem(at: attributes.indexPath)
       cellSizeCalculator.configure(attributes: attributes)
+      attributes.transform = .init(scaleX: 1, y: -1)
     }
     return attributesArray
   }
@@ -102,6 +110,29 @@ open class MessagesCollectionViewFlowLayout: UICollectionViewFlowLayout {
     if attributes.representedElementCategory == .cell {
       let cellSizeCalculator = cellSizeCalculatorForItem(at: attributes.indexPath)
       cellSizeCalculator.configure(attributes: attributes)
+      attributes.transform = .init(scaleX: 1, y: -1)
+    }
+    return attributes
+  }
+
+  open override func initialLayoutAttributesForAppearingItem(at itemIndexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
+    guard let attributes = super.initialLayoutAttributesForAppearingItem(at: itemIndexPath) as? MessagesCollectionViewLayoutAttributes else {
+      return nil
+    }
+    if attributes.representedElementCategory == .cell {
+      let cellSizeCalculator = cellSizeCalculatorForItem(at: attributes.indexPath)
+      cellSizeCalculator.configure(attributes: attributes)
+      attributes.transform = .init(scaleX: 1, y: -1)
+    }
+    return attributes
+  }
+
+  open override func finalLayoutAttributesForDisappearingItem(at itemIndexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
+    guard let attributes = super.finalLayoutAttributesForDisappearingItem(at: itemIndexPath) as? MessagesCollectionViewLayoutAttributes else {
+      return nil
+    }
+    if attributes.representedElementCategory == .cell {
+      attributes.transform = .init(scaleX: 1, y: -1)
     }
     return attributes
   }
@@ -185,8 +216,6 @@ open class MessagesCollectionViewFlowLayout: UICollectionViewFlowLayout {
   }
 
   // MARK: Public
-
-  public private(set) var isTypingIndicatorViewHidden = true
 
   /// The `MessagesCollectionView` that owns this layout object.
   public var messagesCollectionView: MessagesCollectionView {
@@ -320,18 +349,6 @@ open class MessagesCollectionViewFlowLayout: UICollectionViewFlowLayout {
   /// Set `outgoingAccessoryViewPosition` of all `MessageSizeCalculator`s
   public func setMessageOutgoingAccessoryViewPosition(_ newPosition: AccessoryPosition) {
     messageSizeCalculators().forEach { $0.outgoingAccessoryViewPosition = newPosition }
-  }
-
-  // MARK: Internal
-
-  // MARK: - Typing Indicator API
-
-  /// Notifies the layout that the typing indicator will change state
-  ///
-  /// - Parameters:
-  ///   - isHidden: A Boolean value that is to be the new state of the typing indicator
-  internal func setTypingIndicatorViewHidden(_ isHidden: Bool) {
-    isTypingIndicatorViewHidden = isHidden
   }
 
   // MARK: Private

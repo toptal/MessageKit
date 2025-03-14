@@ -51,6 +51,8 @@ open class MessagesCollectionViewLayoutAttributes: UICollectionViewLayoutAttribu
     copy.accessoryViewPadding = accessoryViewPadding
     copy.accessoryViewPosition = accessoryViewPosition
     copy.linkPreviewFonts = linkPreviewFonts
+    copy.attachmentSize = attachmentSize
+    copy.attachmentPadding = attachmentPadding
     return copy
     // swiftlint:enable force_cast
   }
@@ -83,6 +85,9 @@ open class MessagesCollectionViewLayoutAttributes: UICollectionViewLayoutAttribu
   public var accessoryViewSize: CGSize = .zero
   public var accessoryViewPadding: HorizontalEdgeInsets = .zero
   public var accessoryViewPosition: AccessoryPosition = .messageCenter
+
+  public var attachmentSize: CGSize = .zero
+  public var attachmentPadding: UIEdgeInsets = .zero
 
   public var linkPreviewFonts = LinkPreviewFonts(
     titleFont: .preferredFont(forTextStyle: .footnote),

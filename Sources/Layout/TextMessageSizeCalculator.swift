@@ -51,8 +51,13 @@ open class TextMessageSizeCalculator: MessageSizeCalculator {
     messageContainerSize = labelSize(for: attributedText, considering: maxWidth)
 
     let messageInsets = messageLabelInsets(for: message)
+    // In case we have an attachment view but we don't have any text - remove space for empty text
+    if attachmentViewSize(for: message, at: indexPath) != .zero && attributedText.length == 0 {
+      messageContainerSize.height = messageInsets.top
+    } else {
+      messageContainerSize.height += messageInsets.vertical
+    }
     messageContainerSize.width += messageInsets.horizontal
-    messageContainerSize.height += messageInsets.vertical
 
     return messageContainerSize
   }

@@ -88,6 +88,8 @@ open class MessageContentCell: MessageCollectionViewCell {
   // Should only add customized subviews - don't change accessoryView itself.
   open var accessoryView = UIView()
 
+  open var attachmentView = UIView()
+
   /// The `MessageCellDelegate` for the cell.
   open weak var delegate: MessageCellDelegate?
 
@@ -110,6 +112,8 @@ open class MessageContentCell: MessageCollectionViewCell {
       messageContainerView,
       avatarView,
       messageTimestampLabel)
+
+    messageContainerView.addSubview(attachmentView)
   }
 
   // MARK: - Configuration
@@ -125,6 +129,7 @@ open class MessageContentCell: MessageCollectionViewCell {
     layoutMessageTopLabel(with: attributes)
     layoutAvatarView(with: attributes)
     layoutAccessoryView(with: attributes)
+    layoutAttachmentView(with: attributes)
     layoutTimeLabelView(with: attributes)
   }
 
@@ -150,6 +155,7 @@ open class MessageContentCell: MessageCollectionViewCell {
     displayDelegate.configureAvatarView(avatarView, for: message, at: indexPath, in: messagesCollectionView)
 
     displayDelegate.configureAccessoryView(accessoryView, for: message, at: indexPath, in: messagesCollectionView)
+    displayDelegate.configureAttachmentView(attachmentView, for: message, at: indexPath, in: messagesCollectionView)
 
     messageContainerView.backgroundColor = messageColor
     messageContainerView.style = messageStyle
@@ -172,6 +178,8 @@ open class MessageContentCell: MessageCollectionViewCell {
     let touchLocation = gesture.location(in: self)
 
     switch true {
+    case attachmentView.frame.contains(touchLocation):
+      delegate?.didTapAttachmentView(in: self, at: gesture.location(in: attachmentView))
     case messageContainerView.frame
       .contains(touchLocation) && !cellContentView(canHandle: convert(touchLocation, to: messageContainerView)):
       delegate?.didTapMessage(in: self)
@@ -356,8 +364,17 @@ open class MessageContentCell: MessageCollectionViewCell {
     case .natural:
       fatalError(MessageKitError.avatarPositionUnresolved)
     }
-
     accessoryView.frame = CGRect(origin: origin, size: attributes.accessoryViewSize)
+  }
+
+  /// Positions the cell's attachments view.
+  /// - attributes: The `MessagesCollectionViewLayoutAttributes` for the cell.
+  open func layoutAttachmentView(with attributes: MessagesCollectionViewLayoutAttributes) {
+    let origin: CGPoint = .init(
+        x: messageContainerView.bounds.minX + attributes.attachmentPadding.left,
+        y: messageContainerView.bounds.maxY - attributes.attachmentSize.height - attributes.attachmentPadding.bottom
+    )
+    attachmentView.frame = CGRect(origin: origin, size: attributes.attachmentSize)
   }
 
   ///  Positions the message bubble's time label.

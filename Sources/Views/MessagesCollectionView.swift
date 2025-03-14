@@ -55,10 +55,6 @@ open class MessagesCollectionView: UICollectionView {
 
   open weak var messageCellDelegate: MessageCellDelegate?
 
-  open var isTypingIndicatorHidden: Bool {
-    messagesCollectionViewFlowLayout.isTypingIndicatorViewHidden
-  }
-
   open var messagesCollectionViewFlowLayout: MessagesCollectionViewFlowLayout {
     guard let layout = collectionViewLayout as? MessagesCollectionViewFlowLayout else {
       fatalError(MessageKitError.layoutUsedOnForeignType)
@@ -80,10 +76,8 @@ open class MessagesCollectionView: UICollectionView {
   // MARK: Public
 
   // NOTE: It's possible for small content size this wouldn't work - https://github.com/MessageKit/MessageKit/issues/725
-  public func scrollToLastItem(at pos: UICollectionView.ScrollPosition = .bottom, animated: Bool = true) {
-    guard let indexPath = indexPathForLastItem else { return }
-
-    scrollToItem(at: indexPath, at: pos, animated: animated)
+  public func scrollToLastItem(animated: Bool = true) {
+    setContentOffset(.init(x: 0, y: -adjustedContentInset.top), animated: animated)
   }
 
   public func reloadDataAndKeepOffset() {
@@ -177,16 +171,6 @@ open class MessagesCollectionView: UICollectionView {
   /// Display the date of message by swiping left.
   /// The default value of this property is `false`.
   internal var showMessageTimestampOnSwipeLeft = false
-
-  // MARK: - Typing Indicator API
-
-  /// Notifies the layout that the typing indicator will change state
-  ///
-  /// - Parameters:
-  ///   - isHidden: A Boolean value that is to be the new state of the typing indicator
-  internal func setTypingIndicatorViewHidden(_ isHidden: Bool) {
-    messagesCollectionViewFlowLayout.setTypingIndicatorViewHidden(isHidden)
-  }
 
   // MARK: Private
 

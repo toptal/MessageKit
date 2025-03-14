@@ -34,6 +34,10 @@ public protocol MessageType {
   /// The date the message was sent.
   var sentDate: Date { get }
 
+  /// Hash value of the underlying message content. This is used to detect changes in the content of the message to
+  /// correctly handle cell updates.
+  var hash: Int { get }
+
   /// The kind of message and its underlying kind.
   var kind: MessageKind { get }
 }

@@ -84,7 +84,7 @@ extension MessagesViewController {
       }
       .store(in: &disposeBag)
 
-    /// Observe frame change of the input bar container to update collectioView bottom inset
+    /// Observe frame change of the input bar container to update collectionView bottom inset
     inputContainerView.publisher(for: \.center)
       .receive(on: DispatchQueue.main)
       .removeDuplicates()
@@ -106,8 +106,9 @@ extension MessagesViewController {
 
     UIView.performWithoutAnimation {
       guard differenceOfBottomInset != 0 else { return }
-      messagesCollectionView.contentInset.bottom = normalizedNewBottomInset
-      messagesCollectionView.verticalScrollIndicatorInsets.bottom = newBottomInset
+      // Note: flipped b/c of transform on collectionView
+      messagesCollectionView.contentInset.top = normalizedNewBottomInset
+      messagesCollectionView.verticalScrollIndicatorInsets.top = newBottomInset
     }
   }
 
@@ -115,25 +116,14 @@ extension MessagesViewController {
 
   /// UIScrollView can automatically add safe area insets to its contentInset,
   /// which needs to be accounted for when setting the contentInset based on screen coordinates.
+  /// Note: We have the collection view flipped so we're using top instead of bottom here
   ///
   /// - Returns: The distance automatically added to contentInset.bottom, if any.
   private var automaticallyAddedBottomInset: CGFloat {
-    messagesCollectionView.adjustedContentInset.bottom - messageCollectionViewBottomInset
+    messagesCollectionView.adjustedContentInset.top - messageCollectionViewBottomInset
   }
 
   private var messageCollectionViewBottomInset: CGFloat {
-    messagesCollectionView.contentInset.bottom
-  }
-
-  /// UIScrollView can automatically add safe area insets to its contentInset,
-  /// which needs to be accounted for when setting the contentInset based on screen coordinates.
-  ///
-  /// - Returns: The distance automatically added to contentInset.top, if any.
-  private var automaticallyAddedTopInset: CGFloat {
-    messagesCollectionView.adjustedContentInset.top - messageCollectionViewTopInset
-  }
-
-  private var messageCollectionViewTopInset: CGFloat {
     messagesCollectionView.contentInset.top
   }
 
