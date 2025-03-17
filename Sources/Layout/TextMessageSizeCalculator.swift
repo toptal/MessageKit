@@ -26,14 +26,9 @@ import UIKit
 open class TextMessageSizeCalculator: MessageSizeCalculator {
   // MARK: Open
 
-  open override func messageContainerMaxWidth(for message: MessageType, at indexPath: IndexPath) -> CGFloat {
-    let maxWidth = super.messageContainerMaxWidth(for: message, at: indexPath)
-    let textInsets = messageLabelInsets(for: message)
-    return maxWidth - textInsets.horizontal
-  }
-
   open override func messageContainerSize(for message: MessageType, at indexPath: IndexPath) -> CGSize {
-    let maxWidth = messageContainerMaxWidth(for: message, at: indexPath)
+    let messageInsets = messageLabelInsets(for: message)
+    let maxWidth = messageContainerMaxWidth(for: message, at: indexPath) - messageInsets.horizontal
 
     var messageContainerSize: CGSize
     let attributedText: NSAttributedString
@@ -50,7 +45,6 @@ open class TextMessageSizeCalculator: MessageSizeCalculator {
 
     messageContainerSize = labelSize(for: attributedText, considering: maxWidth)
 
-    let messageInsets = messageLabelInsets(for: message)
     // In case we have an attachment view but we don't have any text - remove space for empty text
     if attachmentViewSize(for: message, at: indexPath) != .zero && attributedText.length == 0 {
       messageContainerSize.height = messageInsets.top
