@@ -308,8 +308,14 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
   }
 
   open func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) ->  UIContextMenuConfiguration? {
+    guard let messagesCollectionView = collectionView as? MessagesCollectionView else {
+      fatalError(MessageKitError.notMessagesCollectionView)
+    }
     guard let messagesDataSource = messagesCollectionView.messagesDataSource else {
       fatalError(MessageKitError.nilMessagesDataSource)
+    }
+    guard let displayDelegate: any MessagesDisplayDelegate = messagesCollectionView.messagesDisplayDelegate else {
+      fatalError(MessageKitError.nilMessagesDisplayDelegate)
     }
     guard let indexPath = indexPaths.first else { return nil }
     let pasteBoard = UIPasteboard.general
@@ -333,7 +339,7 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
       content = nil
     }
     if let content {
-      return UIContextMenuConfiguration(previewProvider: nil) { action in
+      return UIContextMenuConfiguration(previewProvider: nil) { _ in
         let copy = UIAction(title: "Copy") { _ in
             switch content {
             case .image(let image):
@@ -342,7 +348,13 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
                 pasteBoard.string = text
             }
         }
-        return UIMenu(options: UIMenu.Options.displayInline, children: [copy])
+        var additionalActions = displayDelegate.additionalActions(
+          for: message, at: 
+          indexPath, 
+          in: messagesCollectionView
+        )
+        additionalActions.insert(copy, at: 0)
+        return UIMenu(options: UIMenu.Options.displayInline, children: additionalActions)
       }
     } else {
       return nil

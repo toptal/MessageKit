@@ -270,7 +270,7 @@ public protocol MessagesDisplayDelegate: AnyObject {
     in messagesCollectionView: MessagesCollectionView)
 
 
-  /// Used inform delegate that given cell was displayed.
+  /// Used to inform delegate that given cell was displayed.
   /// - Parameters:
   ///   - message: The `MessageType` that will be displayed by this cell.
   ///   - indexPath: The `IndexPath` of the cell.
@@ -279,6 +279,16 @@ public protocol MessagesDisplayDelegate: AnyObject {
     for message: MessageType,
     at indexPath: IndexPath,
     in messagesCollectionView: MessagesCollectionView)
+
+  /// Used to provide additional context menu actions actions for given messag
+  /// - Parameters:
+  ///   - message: The `MessageType` that will be displayed by this cell.
+  ///   - indexPath: The `IndexPath` of the cell.
+  ///   - messagesCollectionView: The `MessagesCollectionView` in which this cell will be displayed.
+  func additionalActions(
+    for message: MessageType,
+    at indexPath: IndexPath,
+    in messagesCollectionView: MessagesCollectionView) -> [UIAction]
 }
 
 extension MessagesDisplayDelegate {
@@ -438,4 +448,13 @@ extension MessagesDisplayDelegate {
     for message: MessageType,
     at indexPath: IndexPath,
     in messagesCollectionView: MessagesCollectionView) { }
+
+  // MARK: - Additional Actions Defaults
+
+  func additionalActions(
+    for message: MessageType,
+    at indexPath: IndexPath,
+    in messagesCollectionView: MessagesCollectionView) -> [UIAction] {
+      []
+    }
 }
