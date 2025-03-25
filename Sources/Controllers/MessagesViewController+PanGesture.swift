@@ -73,7 +73,7 @@ extension MessagesViewController {
         delay: 0,
         usingSpringWithDamping: 0.7,
         initialSpringVelocity: 0.8,
-        options: .curveEaseOut,
+        options: [.curveEaseOut, .beginFromCurrentState, .allowUserInteraction],
         animations: {
           parentView.frame.origin.x = 0
         },
