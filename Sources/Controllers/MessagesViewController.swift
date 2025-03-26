@@ -226,13 +226,13 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
             switch (item.kind, oldItem.kind) {
               case (.message(let message), .message(let oldMessage)):
                 if message.hash != oldMessage.hash {
-                    oldSnapshot.reloadItems([oldItem])
+                  oldSnapshot.reloadItem(item: oldItem, using: item)
                 }
               default:
-                oldSnapshot.reloadItems([oldItem])
+                oldSnapshot.reloadItem(item: oldItem, using: item)
             }
           } else {
-              oldSnapshot.reloadItems([oldItem])
+            oldSnapshot.reloadItems([oldItem])
           }
         }
         diffableDataSource.apply(oldSnapshot, animatingDifferences: animated, completion: internalCompletion)
@@ -523,4 +523,15 @@ internal struct Entry: Hashable, @unchecked Sendable {
       return false
     }
   }
+}
+
+extension NSDiffableDataSourceSnapshot {
+    mutating func reloadItem(item: ItemIdentifierType, using newItem: ItemIdentifierType) {
+        reloadItems([item])
+        guard let section = sectionIdentifier(containingItem: item) else {
+            return
+        }
+        deleteItems([item])
+        appendItems([newItem], toSection: section)
+    }
 }
