@@ -324,6 +324,15 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
     enum Content {
       case text(String)
       case image(UIImage)
+
+      var isNotEmpty: Bool {
+        switch self {
+        case .text(let text):
+          return !text.isEmpty
+        case .image(let image):
+          return true
+        }
+      }
     }
 
     let content: Content?
@@ -340,20 +349,22 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
     }
     if let content {
       return UIContextMenuConfiguration(previewProvider: nil) { _ in
-        let copy = UIAction(title: "Copy") { _ in
-            switch content {
-            case .image(let image):
-                pasteBoard.image = image
-            case .text(let text):
-                pasteBoard.string = text
-            }
-        }
         var additionalActions = displayDelegate.additionalActions(
           for: message, at: 
           indexPath, 
           in: messagesCollectionView
         )
-        additionalActions.insert(copy, at: 0)
+        if content.isNotEmpty {
+          let copy = UIAction(title: "Copy") { _ in
+            switch content {
+            case .image(let image):
+              pasteBoard.image = image
+            case .text(let text):
+              pasteBoard.string = text
+            }
+          }
+          additionalActions.insert(copy, at: 0)
+        }
         return UIMenu(options: UIMenu.Options.displayInline, children: additionalActions)
       }
     } else {
@@ -470,10 +481,8 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
       .store(in: &disposeBag)
 
     state.$inputBarType
-      .subscribe(on: DispatchQueue.global())
       .dropFirst()
       .removeDuplicates()
-      .receive(on: DispatchQueue.main)
       .sink(receiveValue: { [weak self] newType in
         self?.setupInputBar(for: newType)
       })
