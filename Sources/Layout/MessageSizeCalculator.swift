@@ -326,8 +326,8 @@ open class MessageSizeCalculator: CellSizeCalculator {
   // MARK: - Accessory View
 
   public func accessoryViewSize(for message: MessageType, at indexPath: IndexPath) -> CGSize {
-      let collectionView = messagesLayout.messagesCollectionView
-      let layoutDelegate = messagesLayout.messagesLayoutDelegate
+    let collectionView = messagesLayout.messagesCollectionView
+    let layoutDelegate = messagesLayout.messagesLayoutDelegate
 
     if let size = layoutDelegate.accessorySize(for: message, at: indexPath, in: collectionView) {
       return size

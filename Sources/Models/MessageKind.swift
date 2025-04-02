@@ -63,9 +63,9 @@ public enum MessageKind {
   ///   - MessagesLayoutDelegate: customCellSizeCalculator(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CellSizeCalculator
   case custom(Any?)
 
-  // MARK: - Not supported yet
+  case system(NSAttributedString)
 
-//    case system(String)
+  // MARK: - Not supported yet
 //
 //    case placeholder
 }

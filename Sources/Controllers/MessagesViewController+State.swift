@@ -36,7 +36,11 @@ extension MessagesViewController {
         let inputContainerView: MessagesInputContainerView = .init()
         @Published var inputBarType: MessageInputBarKind = .messageInputBar
         let keyboardManager = KeyboardManager()
+        let insetKeyboardManager = KeyboardManager()
         var disposeBag: Set<AnyCancellable> = .init()
+
+        @Published var keyboardInset: CGFloat = 0
+        @Published var additionalBottomInset: CGFloat = 0
     }
 
   // MARK: - Getters

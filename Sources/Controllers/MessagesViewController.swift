@@ -63,7 +63,7 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
   /// value for your app. Please let us know when you end up having to use this property.
   open var additionalBottomInset: CGFloat = 0 {
     didSet {
-      updateMessageCollectionViewBottomInset()
+      state.additionalBottomInset = additionalBottomInset
     }
   }
 
@@ -141,6 +141,10 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
           let cell = messagesCollectionView.dequeueReusableCell(LinkPreviewMessageCell.self, for: indexPath)
           cell.configure(with: message, at: indexPath, and: messagesCollectionView)
           return cell
+        case .system(let systemMessage):
+          let cell = messagesCollectionView.dequeueReusableCell(SystemMessageCell.self, for: indexPath)
+          cell.configure(with: systemMessage, at: indexPath, and: messagesCollectionView)
+          return cell
         case .custom:
           return messagesDataSource.customCell(for: message, at: indexPath, in: messagesCollectionView)
         }
@@ -169,7 +173,6 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
 
   open override func viewSafeAreaInsetsDidChange() {
     super.viewSafeAreaInsetsDidChange()
-    updateMessageCollectionViewBottomInset()
 
     messagesCollectionView.verticalScrollIndicatorInsets.bottom = view.safeAreaInsets.top
     messagesCollectionView.contentInset.bottom = view.safeAreaInsets.top
@@ -218,30 +221,31 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
 
     // We have new items added or removed so we do a full reload
     if !addedItems.isEmpty || !removedItems.isEmpty {
+      reloadUnchangedItems(on: &snapshot, unchangedItems: unchangedItems, newItems: newItems)
       diffableDataSource.apply(snapshot, animatingDifferences: animated, completion: internalCompletion)
     } else if !unchangedItems.isEmpty {
-      if #available(iOS 15.0, *) {
-        for oldItem in oldItems {
-          if let item = newItems.first(where: { $0.hashValue == oldItem.hashValue }) {
-            switch (item.kind, oldItem.kind) {
-              case (.message(let message), .message(let oldMessage)):
-                if message.hash != oldMessage.hash {
-                  oldSnapshot.reloadItem(item: oldItem, using: item)
-                }
-              default:
-                oldSnapshot.reloadItem(item: oldItem, using: item)
-            }
-          } else {
-            oldSnapshot.reloadItems([oldItem])
-          }
-        }
-        diffableDataSource.apply(oldSnapshot, animatingDifferences: animated, completion: internalCompletion)
-      } else {
-        diffableDataSource.apply(snapshot, animatingDifferences: animated, completion: internalCompletion)
-      }
+      reloadUnchangedItems(on: &oldSnapshot, unchangedItems: unchangedItems, newItems: newItems)
+      diffableDataSource.apply(oldSnapshot, animatingDifferences: animated, completion: internalCompletion)
     } else {
       // There were no changes at all, so we just call completion
       completion()
+    }
+  }
+
+  func reloadUnchangedItems(on snapshot: inout NSDiffableDataSourceSnapshot<Int, Entry>, unchangedItems: Set<Entry>, newItems: Set<Entry>) {
+    for oldItem in unchangedItems {
+      if let item = newItems.first(where: { $0.hashValue == oldItem.hashValue }) {
+        switch (item.kind, oldItem.kind) {
+          case (.message(let message), .message(let oldMessage)):
+            if message.hash != oldMessage.hash {
+              snapshot.reloadItem(item: oldItem, using: item)
+            }
+          default:
+            snapshot.reloadItem(item: oldItem, using: item)
+        }
+      } else {
+        snapshot.reloadItems([oldItem])
+      }
     }
   }
 
@@ -329,7 +333,7 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
         switch self {
         case .text(let text):
           return !text.isEmpty
-        case .image(let image):
+        case .image:
           return true
         }
       }
@@ -437,7 +441,7 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
 
     NSLayoutConstraint.activate([
       messagesCollectionView.topAnchor.constraint(equalTo: view.topAnchor),
-      messagesCollectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+      messagesCollectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
       messagesCollectionView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
       messagesCollectionView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
     ])

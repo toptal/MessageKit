@@ -40,10 +40,8 @@ extension MessagesViewController {
     /// Observe didBeginEditing to scroll content to last item if necessary
     NotificationCenter.default
       .publisher(for: UITextView.textDidBeginEditingNotification)
-      .subscribe(on: DispatchQueue.global())
       /// Wait for inputBar frame change animation to end
       .delay(for: .milliseconds(200), scheduler: DispatchQueue.main)
-      .receive(on: DispatchQueue.main)
       .sink { [weak self] notification in
         self?.handleTextViewDidBeginEditing(notification)
       }
@@ -51,66 +49,86 @@ extension MessagesViewController {
 
     NotificationCenter.default
       .publisher(for: UITextView.textDidChangeNotification)
-      .subscribe(on: DispatchQueue.global())
-      .receive(on: DispatchQueue.main)
       .compactMap { $0.object as? InputTextView }
       .filter { [weak self] textView in
         textView == self?.messageInputBar.inputTextView
       }
       .map(\.text)
       .removeDuplicates()
-      .delay(for: .milliseconds(50), scheduler: DispatchQueue.main) /// Wait for next runloop to lay out inputView properly
       .sink { [weak self] _ in
-        self?.updateMessageCollectionViewBottomInset()
-
         if !(self?.maintainPositionOnInputBarHeightChanged ?? false) {
-          self?.messagesCollectionView.scrollToLastItem()
+          // Get the right frame of input bar - we need this for correct scrollToLastItem animation
+          self?.view.setNeedsLayout()
+          self?.view.layoutIfNeeded()
+          self?.messagesCollectionView.scrollToLastItem(animated: false)
         }
       }
       .store(in: &disposeBag)
 
     NotificationCenter.default
       .publisher(for: UITextInputMode.currentInputModeDidChangeNotification)
-      .subscribe(on: DispatchQueue.global())
-      .receive(on: DispatchQueue.main)
       .removeDuplicates()
-      .delay(for: .milliseconds(50), scheduler: DispatchQueue.main) /// Wait for next runloop to lay out inputView properly
       .sink { [weak self] _ in
-          self?.updateMessageCollectionViewBottomInset()
-          
-          if !(self?.maintainPositionOnInputBarHeightChanged ?? false) {
-              self?.messagesCollectionView.scrollToLastItem()
-          }
+        if !(self?.maintainPositionOnInputBarHeightChanged ?? false) {
+          // Get the right frame of input bar - we need this for correct scrollToLastItem animation
+          self?.view.setNeedsLayout()
+          self?.view.layoutIfNeeded()
+          self?.messagesCollectionView.scrollToLastItem(animated: false)
+        }
       }
       .store(in: &disposeBag)
 
-    /// Observe frame change of the input bar container to update collectionView bottom inset
-    inputContainerView.publisher(for: \.center)
-      .receive(on: DispatchQueue.main)
-      .removeDuplicates()
-      .sink(receiveValue: { [weak self] _ in
-        self?.updateMessageCollectionViewBottomInset()
-      })
-      .store(in: &disposeBag)
+      state.insetKeyboardManager.on(event: .willShow) { [weak self] notification in
+        self?.updateInsets(from: notification)
+      }
+      state.insetKeyboardManager.on(event: .willChangeFrame) { [weak self] notification in
+        self?.updateInsets(from: notification)
+      }
+      state.insetKeyboardManager.on(event: .willHide) { [weak self] notification in
+        self?.updateInsets(from: notification)
+      }
+
+      state.$keyboardInset
+        .removeDuplicates()
+        .combineLatest(
+          // We use center here to get changes for both size and position - might be a bit hacky for some situation
+          inputContainerView.publisher(for: \.center).removeDuplicates(),
+          state.$additionalBottomInset.removeDuplicates()
+        )
+        .sink(receiveValue: { [messagesCollectionView, inputContainerView] inset, _, additionalInset in
+          guard let collectionParent = messagesCollectionView.superview else { return }
+
+          let convertedInputBarFrame = collectionParent.convert(inputContainerView.bounds, from: inputContainerView)
+          // We make a strong assumption here that the input bar frame is in the same coordinate space as collection view
+          let inputBarOverlappingHeight = convertedInputBarFrame.intersection(messagesCollectionView.frame).height
+
+          let finalInset = inset + inputBarOverlappingHeight + additionalInset
+          messagesCollectionView.contentInset.top = finalInset
+          messagesCollectionView.verticalScrollIndicatorInsets.top = inset + inputBarOverlappingHeight
+        })
+        .store(in: &state.disposeBag)
   }
 
   // MARK: - Updating insets
 
-  /// Updates bottom messagesCollectionView inset based on the position of inputContainerView
-  internal func updateMessageCollectionViewBottomInset() {
-    let collectionViewHeight = messagesCollectionView.frame.maxY
-    let newBottomInset = collectionViewHeight - (inputContainerView.frame.minY - additionalBottomInset) -
-      automaticallyAddedBottomInset
-    let normalizedNewBottomInset = max(0, newBottomInset)
-    let differenceOfBottomInset = newBottomInset - messageCollectionViewBottomInset
+  private func updateInsets(from notification: KeyboardNotification) {
+    guard let parent = messagesCollectionView.superview, let window = parent.window else { return }
+    // Grab end frame in window coordinates
+    let collectionViewFrameInScrollParentCoordinates = parent.convert(messagesCollectionView.frame, to: window)
+    let parentRect = collectionViewFrameInScrollParentCoordinates.intersection(notification.endFrame)
 
-    UIView.performWithoutAnimation {
-      guard differenceOfBottomInset != 0 else { return }
-      // Note: flipped b/c of transform on collectionView
-      messagesCollectionView.contentInset.top = normalizedNewBottomInset
-      messagesCollectionView.verticalScrollIndicatorInsets.top = newBottomInset
-    }
+    let finalInset = parentRect.height
+
+    UIView.animate(
+      withDuration: notification.timeInterval,
+      delay: 0,
+      options: notification.animationOptions,
+      animations: { [state] in
+        state.keyboardInset = finalInset
+      }
+    )
   }
+
 
   // MARK: Private
 
