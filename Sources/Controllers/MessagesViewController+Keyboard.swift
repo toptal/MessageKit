@@ -88,23 +88,15 @@ extension MessagesViewController {
         self?.updateInsets(from: notification)
       }
 
+      // There is no need to observe the frame here - InputAccessoryView will trigger a layout pass that in turn
+      // will correctly recalculate the inset.
       state.$keyboardInset
         .removeDuplicates()
         .combineLatest(
-          // We use center here to get changes for both size and position - might be a bit hacky for some situation
-          inputContainerView.publisher(for: \.center).removeDuplicates(),
           state.$additionalBottomInset.removeDuplicates()
         )
-        .sink(receiveValue: { [messagesCollectionView, inputContainerView] inset, _, additionalInset in
-          guard let collectionParent = messagesCollectionView.superview else { return }
-
-          let convertedInputBarFrame = collectionParent.convert(inputContainerView.bounds, from: inputContainerView)
-          // We make a strong assumption here that the input bar frame is in the same coordinate space as collection view
-          let inputBarOverlappingHeight = convertedInputBarFrame.intersection(messagesCollectionView.frame).height
-
-          let finalInset = inset + inputBarOverlappingHeight + additionalInset
-          messagesCollectionView.contentInset.top = finalInset
-          messagesCollectionView.verticalScrollIndicatorInsets.top = inset + inputBarOverlappingHeight
+        .sink(receiveValue: { [weak self] _, _ in
+            self?.recalculateInsets()
         })
         .store(in: &state.disposeBag)
   }
@@ -129,6 +121,19 @@ extension MessagesViewController {
     )
   }
 
+  func recalculateInsets() {
+    guard let collectionParent = messagesCollectionView.superview else { return }
+    let inset = state.keyboardInset
+    let additionalInset = state.additionalBottomInset
+
+    let convertedInputBarFrame = collectionParent.convert(inputContainerView.bounds, from: inputContainerView)
+    // We make a strong assumption here that the input bar frame is in the same coordinate space as collection view
+    let inputBarOverlappingHeight = convertedInputBarFrame.intersection(messagesCollectionView.frame).height
+
+    let finalInset = inset + inputBarOverlappingHeight + additionalInset
+    messagesCollectionView.contentInset.top = finalInset
+    messagesCollectionView.verticalScrollIndicatorInsets.top = inset + inputBarOverlappingHeight
+  }
 
   // MARK: Private
 
