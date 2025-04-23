@@ -74,6 +74,13 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
 
   open override func viewDidLoad() {
     super.viewDidLoad()
+
+    // Fixes infinite layout cycle when input text view has a non-integral size and the keyboard height is lower than
+    // the height of bottom inset (eg when running as iOS app on macOS with tab bar at the bottom).
+    messageInputBar.inputTextView = FixedInputTextView()
+    messageInputBar.inputTextView.inputBarAccessoryView = messageInputBar
+    messageInputBar.setMiddleContentView(messageInputBar.inputTextView, animated: false)
+
     setupDefaults()
     setupSubviews()
     setupConstraints()
@@ -555,4 +562,10 @@ extension NSDiffableDataSourceSnapshot {
         deleteItems([item])
         appendItems([newItem], toSection: section)
     }
+}
+
+private class FixedInputTextView: InputTextView {
+  override var intrinsicContentSize: CGSize {
+    CGRect(origin: .zero, size: super.intrinsicContentSize).integral.size
+  }
 }

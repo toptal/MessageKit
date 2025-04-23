@@ -126,13 +126,21 @@ extension MessagesViewController {
     let inset = state.keyboardInset
     let additionalInset = state.additionalBottomInset
 
-    let convertedInputBarFrame = collectionParent.convert(inputContainerView.bounds.integral, from: inputContainerView)
+    var convertedInputBarFrame = collectionParent.convert(inputContainerView.bounds, from: inputContainerView)
+    let nonIntegralPart = convertedInputBarFrame.height.truncatingRemainder(dividingBy: 1)
+    if nonIntegralPart != 0 {
+      convertedInputBarFrame.origin.y -= nonIntegralPart
+      convertedInputBarFrame.size.height = convertedInputBarFrame.size.height.rounded(.towardZero)
+      convertedInputBarFrame.origin.y = convertedInputBarFrame.origin.y.rounded(.towardZero)
+    }
     // We make a strong assumption here that the input bar frame is in the same coordinate space as collection view
     let inputBarOverlappingHeight = convertedInputBarFrame.intersection(messagesCollectionView.frame).height
 
     let finalInset = inset + inputBarOverlappingHeight + additionalInset
-    messagesCollectionView.contentInset.top = finalInset
-    messagesCollectionView.verticalScrollIndicatorInsets.top = inset + inputBarOverlappingHeight
+    if finalInset != messagesCollectionView.contentInset.top {
+      messagesCollectionView.contentInset.top = finalInset
+      messagesCollectionView.verticalScrollIndicatorInsets.top = inset + inputBarOverlappingHeight
+    }
   }
 
   // MARK: Private
