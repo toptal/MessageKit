@@ -126,7 +126,7 @@ extension MessagesViewController {
     let inset = state.keyboardInset
     let additionalInset = state.additionalBottomInset
 
-    let convertedInputBarFrame = collectionParent.convert(inputContainerView.bounds, from: inputContainerView)
+    let convertedInputBarFrame = collectionParent.convert(inputContainerView.bounds.integral, from: inputContainerView)
     // We make a strong assumption here that the input bar frame is in the same coordinate space as collection view
     let inputBarOverlappingHeight = convertedInputBarFrame.intersection(messagesCollectionView.frame).height
 
