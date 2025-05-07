@@ -225,32 +225,31 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
     let newItems = Set(snapshot.itemIdentifiers)
 
     let unchangedItems = oldItems.intersection(newItems)
-    let addedItems = newItems.subtracting(oldItems)
-    let removedItems = oldItems.subtracting(newItems)
-
-    // We have new items added or removed so we do a full reload
-    if !addedItems.isEmpty || !removedItems.isEmpty {
-      reloadUnchangedItems(on: &snapshot, unchangedItems: unchangedItems, newItems: newItems)
-      diffableDataSource.apply(snapshot, animatingDifferences: animated, completion: internalCompletion)
-    } else if !unchangedItems.isEmpty {
+    // If we have the exact same item identifiers then there is no need to do a full reload - we apply old snapshot
+    // with only reloading items that have changed
+    if oldSnapshot.itemIdentifiers == snapshot.itemIdentifiers {
       reloadUnchangedItems(on: &oldSnapshot, unchangedItems: unchangedItems, newItems: newItems)
       diffableDataSource.apply(oldSnapshot, animatingDifferences: animated, completion: internalCompletion)
     } else {
-      // There were no changes at all, so we just call completion
-      completion()
+      reloadUnchangedItems(on: &snapshot, unchangedItems: unchangedItems, newItems: newItems)
+      // Order of the items has changed - we only apply new snapshot
+      diffableDataSource.apply(snapshot, animatingDifferences: animated, completion: internalCompletion)
     }
   }
 
   func reloadUnchangedItems(on snapshot: inout NSDiffableDataSourceSnapshot<Int, Entry>, unchangedItems: Set<Entry>, newItems: Set<Entry>) {
+    // Check if there are any changes between items
     for oldItem in unchangedItems {
-      if let item = newItems.first(where: { $0.hashValue == oldItem.hashValue }) {
+      if let item = newItems.first(where: { $0 == oldItem }) {
         switch (item.kind, oldItem.kind) {
           case (.message(let message), .message(let oldMessage)):
+            // Check if the underlying content has changed - we use the content hash value to determine that.
             if message.hash != oldMessage.hash {
-              snapshot.reloadItem(item: oldItem, using: item)
+                snapshot.reloadItem(item: oldItem, using: item)
             }
           default:
-            snapshot.reloadItem(item: oldItem, using: item)
+            // Technically this shouldn't happen but just in case - we do a reload
+            snapshot.reloadItems([item])
         }
       } else {
         snapshot.reloadItems([oldItem])
@@ -525,13 +524,23 @@ internal struct Entry: Hashable, @unchecked Sendable {
   let kind: Kind
 
   func hash(into hasher: inout Hasher) {
-    // We explicitly don't hash the message content hash here since at this level we want to know about position
-    // changes, not content changes
+    // We explicitly don't hash the message content hash - this hash is used to handle collection view diffable data
+    // source and it should only reflect identity, not content changes.
+    // See: https://developer.apple.com/documentation/uikit/updating-collection-views-using-diffable-data-sources
     switch kind {
     case .message(let message):
       hasher.combine(message.messageId)
     case .typingIndicator:
       hasher.combine("typingIndicator")
+    }
+  }
+
+  var id: String {
+    switch kind {
+    case .message(let messageType):
+      return messageType.messageId
+    case .typingIndicator:
+      return "__typingIndicator"
     }
   }
 
@@ -548,12 +557,12 @@ internal struct Entry: Hashable, @unchecked Sendable {
 }
 
 extension NSDiffableDataSourceSnapshot {
-    mutating func reloadItem(item: ItemIdentifierType, using newItem: ItemIdentifierType) {
-        reloadItems([item])
-        guard let section = sectionIdentifier(containingItem: item) else {
-            return
-        }
-        deleteItems([item])
-        appendItems([newItem], toSection: section)
+  mutating func reloadItem(item: ItemIdentifierType, using newItem: ItemIdentifierType) {
+    reloadItems([item])
+    guard let section = sectionIdentifier(containingItem: item) else {
+        return
     }
+    deleteItems([item])
+    appendItems([newItem], toSection: section)
+  }
 }

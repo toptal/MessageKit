@@ -100,6 +100,7 @@ open class MessageContentCell: MessageCollectionViewCell {
     messageTopLabel.text = nil
     messageBottomLabel.text = nil
     messageTimestampLabel.attributedText = nil
+    accessoryView.subviews.forEach({ $0.removeFromSuperview() })
   }
 
   open func setupSubviews() {
