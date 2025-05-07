@@ -78,27 +78,27 @@ extension MessagesViewController {
       }
       .store(in: &disposeBag)
 
-      state.insetKeyboardManager.on(event: .willShow) { [weak self] notification in
-        self?.updateInsets(from: notification)
-      }
-      state.insetKeyboardManager.on(event: .willChangeFrame) { [weak self] notification in
-        self?.updateInsets(from: notification)
-      }
-      state.insetKeyboardManager.on(event: .willHide) { [weak self] notification in
-        self?.updateInsets(from: notification)
-      }
+    state.insetKeyboardManager.on(event: .willShow) { [weak self] notification in
+      self?.updateInsets(from: notification)
+    }
+    state.insetKeyboardManager.on(event: .willChangeFrame) { [weak self] notification in
+      self?.updateInsets(from: notification)
+    }
+    state.insetKeyboardManager.on(event: .willHide) { [weak self] notification in
+      self?.updateInsets(from: notification)
+    }
 
-      // There is no need to observe the frame here - InputAccessoryView will trigger a layout pass that in turn
-      // will correctly recalculate the inset.
-      state.$keyboardInset
-        .removeDuplicates()
-        .combineLatest(
-          state.$additionalBottomInset.removeDuplicates()
-        )
-        .sink(receiveValue: { [weak self] _, _ in
-            self?.recalculateInsets()
-        })
-        .store(in: &state.disposeBag)
+    // There is no need to observe the frame here - InputAccessoryView will trigger a layout pass that in turn
+    // will correctly recalculate the inset.
+    state.$keyboardInset
+      .removeDuplicates()
+      .combineLatest(
+        state.$additionalBottomInset.removeDuplicates()
+      )
+      .sink(receiveValue: { [weak self] keyboardInset, _ in
+        self?.recalculateInsets(keyboardInset: keyboardInset)
+      })
+      .store(in: &state.disposeBag)
   }
 
   // MARK: - Updating insets
@@ -121,9 +121,11 @@ extension MessagesViewController {
     )
   }
 
-  func recalculateInsets() {
-    guard let collectionParent = messagesCollectionView.superview else { return }
-    let inset = state.keyboardInset
+  func recalculateInsets(keyboardInset inset: CGFloat) {
+    guard let collectionParent = messagesCollectionView.superview, messagesCollectionView.shouldUpdateInsets() else {
+      return
+    }
+
     let additionalInset = state.additionalBottomInset
 
     var convertedInputBarFrame = collectionParent.convert(inputContainerView.bounds, from: inputContainerView)
@@ -169,5 +171,12 @@ extension MessagesViewController {
       return
     }
     messagesCollectionView.scrollToLastItem()
+  }
+}
+
+private extension MessagesCollectionView {
+  func shouldUpdateInsets() -> Bool {
+    guard let messagesDisplayDelegate else { return true }
+    return messagesDisplayDelegate.shouldUpdateCollectionViewInsets(in: self)
   }
 }

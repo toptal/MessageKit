@@ -280,7 +280,7 @@ public protocol MessagesDisplayDelegate: AnyObject {
     at indexPath: IndexPath,
     in messagesCollectionView: MessagesCollectionView)
 
-  /// Used to provide additional context menu actions actions for given messag
+  /// Used to provide additional context menu actions actions for given message
   /// - Parameters:
   ///   - message: The `MessageType` that will be displayed by this cell.
   ///   - indexPath: The `IndexPath` of the cell.
@@ -289,6 +289,14 @@ public protocol MessagesDisplayDelegate: AnyObject {
     for message: MessageType,
     at indexPath: IndexPath,
     in messagesCollectionView: MessagesCollectionView) -> [UIAction]
+
+  /// Used to determine whether insets for keyboard should be changed. This is useful when you don't want things to move
+  /// around when a modal view, like eg action sheet, is presented while keyboard is active.
+  /// - Parameters:
+  ///   - message: The `MessageType` that will be displayed by this cell.
+  ///   - indexPath: The `IndexPath` of the cell.
+  ///   - messagesCollectionView: The `MessagesCollectionView` in which this cell will be displayed.
+  func shouldUpdateCollectionViewInsets(in messagesCollectionView: MessagesCollectionView) -> Bool
 }
 
 extension MessagesDisplayDelegate {
@@ -451,10 +459,12 @@ extension MessagesDisplayDelegate {
 
   // MARK: - Additional Actions Defaults
 
-  func additionalActions(
+  public func additionalActions(
     for message: MessageType,
     at indexPath: IndexPath,
     in messagesCollectionView: MessagesCollectionView) -> [UIAction] {
       []
     }
+
+  public func shouldUpdateCollectionViewInsets(in messagesCollectionView: MessagesCollectionView) -> Bool { true }
 }

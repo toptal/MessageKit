@@ -175,7 +175,7 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
   open override func viewSafeAreaInsetsDidChange() {
     super.viewSafeAreaInsetsDidChange()
 
-    recalculateInsets()
+    recalculateInsets(keyboardInset: state.keyboardInset)
 
     messagesCollectionView.verticalScrollIndicatorInsets.bottom = view.safeAreaInsets.top
     messagesCollectionView.contentInset.bottom = view.safeAreaInsets.top
@@ -184,7 +184,7 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
   open override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
 
-    recalculateInsets()
+    recalculateInsets(keyboardInset: state.keyboardInset)
   }
 
   public func updateDataSource(
