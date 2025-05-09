@@ -220,21 +220,7 @@ open class MessagesViewController: UIViewController, UICollectionViewDelegateFlo
       snapshot.appendItems([.init(kind: .typingIndicator)])
     }
 
-    var oldSnapshot = diffableDataSource.snapshot()
-    let oldItems = Set(oldSnapshot.itemIdentifiers)
-    let newItems = Set(snapshot.itemIdentifiers)
-
-    let unchangedItems = oldItems.intersection(newItems)
-    // If we have the exact same item identifiers then there is no need to do a full reload - we apply old snapshot
-    // with only reloading items that have changed
-    if oldSnapshot.itemIdentifiers == snapshot.itemIdentifiers {
-      reloadUnchangedItems(on: &oldSnapshot, unchangedItems: unchangedItems, newItems: newItems)
-      diffableDataSource.apply(oldSnapshot, animatingDifferences: animated, completion: internalCompletion)
-    } else {
-      reloadUnchangedItems(on: &snapshot, unchangedItems: unchangedItems, newItems: newItems)
-      // Order of the items has changed - we only apply new snapshot
-      diffableDataSource.apply(snapshot, animatingDifferences: animated, completion: internalCompletion)
-    }
+    diffableDataSource.apply(snapshot, animatingDifferences: animated, completion: internalCompletion)
   }
 
   func reloadUnchangedItems(on snapshot: inout NSDiffableDataSourceSnapshot<Int, Entry>, unchangedItems: Set<Entry>, newItems: Set<Entry>) {
@@ -530,6 +516,7 @@ internal struct Entry: Hashable, @unchecked Sendable {
     switch kind {
     case .message(let message):
       hasher.combine(message.messageId)
+      hasher.combine(message.hash)
     case .typingIndicator:
       hasher.combine("typingIndicator")
     }
@@ -547,7 +534,7 @@ internal struct Entry: Hashable, @unchecked Sendable {
   static func == (lhs: Entry, rhs: Entry) -> Bool {
     switch (lhs.kind, rhs.kind) {
     case (.message(let lhs), .message(let rhs)):
-      return lhs.messageId == rhs.messageId
+      return lhs.messageId == rhs.messageId && lhs.hash == rhs.hash
     case (.typingIndicator, .typingIndicator):
       return true
     default:
