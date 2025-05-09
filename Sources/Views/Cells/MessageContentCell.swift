@@ -101,6 +101,7 @@ open class MessageContentCell: MessageCollectionViewCell {
     messageBottomLabel.text = nil
     messageTimestampLabel.attributedText = nil
     accessoryView.subviews.forEach({ $0.removeFromSuperview() })
+    attachmentView.subviews.forEach({ $0.removeFromSuperview() })
   }
 
   open func setupSubviews() {
@@ -179,7 +180,7 @@ open class MessageContentCell: MessageCollectionViewCell {
     let touchLocation = gesture.location(in: self)
 
     switch true {
-    case attachmentView.frame.contains(touchLocation):
+    case attachmentView.bounds.contains(gesture.location(in: attachmentView)):
       delegate?.didTapAttachmentView(in: self, at: gesture.location(in: attachmentView))
     case messageContainerView.frame
       .contains(touchLocation) && !cellContentView(canHandle: convert(touchLocation, to: messageContainerView)):

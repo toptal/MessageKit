@@ -39,7 +39,7 @@ extension MessagesViewController {
         let insetKeyboardManager = KeyboardManager()
         var disposeBag: Set<AnyCancellable> = .init()
 
-        @Published var keyboardInset: CGFloat = 0
+        @Published var lastKnownKeyboardFrame: CGRect = .zero
         @Published var additionalBottomInset: CGFloat = 0
     }
 

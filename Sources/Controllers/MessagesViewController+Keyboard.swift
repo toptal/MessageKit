@@ -90,13 +90,13 @@ extension MessagesViewController {
 
     // There is no need to observe the frame here - InputAccessoryView will trigger a layout pass that in turn
     // will correctly recalculate the inset.
-    state.$keyboardInset
+    state.$lastKnownKeyboardFrame
       .removeDuplicates()
       .combineLatest(
         state.$additionalBottomInset.removeDuplicates()
       )
-      .sink(receiveValue: { [weak self] keyboardInset, _ in
-        self?.recalculateInsets(keyboardInset: keyboardInset)
+      .sink(receiveValue: { [weak self] keyboardFrame, _ in
+        self?.recalculateInsets(keyboardFrame: keyboardFrame)
       })
       .store(in: &state.disposeBag)
   }
@@ -104,27 +104,30 @@ extension MessagesViewController {
   // MARK: - Updating insets
 
   private func updateInsets(from notification: KeyboardNotification) {
-    guard let parent = messagesCollectionView.superview, let window = parent.window else { return }
-    // Grab end frame in window coordinates
-    let collectionViewFrameInScrollParentCoordinates = parent.convert(messagesCollectionView.frame, to: window)
-    let parentRect = collectionViewFrameInScrollParentCoordinates.intersection(notification.endFrame)
-
-    let finalInset = parentRect.height
-
     UIView.animate(
       withDuration: notification.timeInterval,
       delay: 0,
       options: notification.animationOptions,
       animations: { [state] in
-        state.keyboardInset = finalInset
+        state.lastKnownKeyboardFrame = notification.endFrame
       }
     )
   }
 
-  func recalculateInsets(keyboardInset inset: CGFloat) {
+  private func keyboardInset(from keyboardFrame: CGRect) -> CGFloat {
+    guard let parent = messagesCollectionView.superview, let window = parent.window else { return 0 }
+
+    let collectionViewFrameInScrollParentCoordinates = parent.convert(messagesCollectionView.frame, to: window)
+    let parentRect = collectionViewFrameInScrollParentCoordinates.intersection(keyboardFrame)
+
+    return parentRect.height
+  }
+
+  func recalculateInsets(keyboardFrame frame: CGRect) {
     guard let collectionParent = messagesCollectionView.superview, messagesCollectionView.shouldUpdateInsets() else {
       return
     }
+    let inset = keyboardInset(from: frame)
 
     let additionalInset = state.additionalBottomInset
 
@@ -143,6 +146,10 @@ extension MessagesViewController {
       messagesCollectionView.contentInset.top = finalInset
       messagesCollectionView.verticalScrollIndicatorInsets.top = inset + inputBarOverlappingHeight
     }
+  }
+
+  public func recalculateInsets() {
+    recalculateInsets(keyboardFrame: state.lastKnownKeyboardFrame)
   }
 
   // MARK: Private
